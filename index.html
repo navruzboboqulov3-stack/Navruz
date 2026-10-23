@@ -202,9 +202,42 @@ button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:3px so
 .sheet .in{background:var(--surface);width:100%;max-width:520px;border-radius:20px 20px 0 0;padding:20px max(16px,env(safe-area-inset-left,0px)) calc(20px + env(safe-area-inset-bottom,0px));display:grid;gap:18px;max-height:85vh;overflow:auto}
 .set{display:grid;gap:8px}
 .seg{display:flex;gap:6px;flex-wrap:wrap}
-.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;z-index:60;max-width:calc(100% - 32px)}
+.toast{position:fixed;left:50%;top:calc(16px + env(safe-area-inset-top,0px));box-shadow:var(--shadow);transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;z-index:60;max-width:calc(100% - 32px)}
 .help{font-size:13px;color:var(--muted);background:var(--surface-2);border-radius:12px;padding:10px 12px}
 .help b{color:var(--fg)}
+
+/* selection + bulk */
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.btn.sm{min-height:38px;padding:8px 12px;font-size:14px;border-radius:10px}
+.btn.sm svg{width:16px;height:16px}
+.ranges{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.ranges .chip{font-size:13px;padding:6px 10px;font-variant-numeric:tabular-nums}
+.row.sel{background:var(--accent-soft)}
+.list .row{grid-template-columns:28px 30px minmax(0,1fr) auto}
+.ck{width:22px;height:22px;accent-color:var(--accent);cursor:pointer;margin:0}
+.selbar{position:sticky;bottom:calc(10px + env(safe-area-inset-bottom,0px));margin-top:12px;background:var(--fg);color:var(--bg);border-radius:16px;padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;box-shadow:var(--shadow);z-index:5}
+.selbar b{margin-right:auto;font-variant-numeric:tabular-nums}
+.selbar .btn{background:color-mix(in srgb,var(--bg) 14%,transparent);border-color:transparent;color:var(--bg)}
+.selbar .btn.primary{background:var(--accent);color:var(--accent-ink)}
+.toast{display:flex;gap:12px;align-items:center}
+.toast button{color:var(--sun);font-weight:700;text-decoration:underline;text-underline-offset:3px}
+
+/* exam */
+.mic{width:76px;height:76px;border-radius:50%;background:var(--teal);color:#fff;display:grid;place-items:center;justify-self:center;position:relative;flex:none}
+.mic svg{width:32px;height:32px}
+.mic.sm{width:54px;height:54px} .mic.sm svg{width:24px;height:24px}
+.mic.on{background:var(--bad)}
+.mic.on::after{content:"";position:absolute;inset:-8px;border-radius:50%;border:3px solid var(--bad);animation:pulse 1.2s infinite}
+@keyframes pulse{from{transform:scale(.9);opacity:1}to{transform:scale(1.25);opacity:0}}
+.ansrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}
+.ansrow .tin{font-size:20px}
+.cfg{display:grid;gap:16px;text-align:left}
+.cfg .set{gap:6px}
+.reslist{display:grid;gap:6px;text-align:left;width:100%}
+.resrow{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border-radius:10px;background:var(--surface-2)}
+.resrow>svg{width:16px;height:16px}
+.resrow .ok{color:var(--good)} .resrow .no{color:var(--bad)}
+.youans{font-size:14px;color:var(--muted)}
 
 @media (max-width:560px){
   .hero-row{grid-template-columns:1fr;justify-items:center;text-align:center}
@@ -213,6 +246,8 @@ button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:3px so
   .tab{flex-direction:column;gap:2px;font-size:11px;padding:8px 4px}
   .card{height:320px}
   .opts{grid-template-columns:1fr}
+  .selbar b{flex-basis:100%}
+  .selbar .btn{flex:1}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -243,6 +278,9 @@ const I={
  x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
  star:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"/></svg>',
  play:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>',
+ mic:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor"/><path d="M5 10v1a7 7 0 0 0 14 0v-1M12 18v4M8 22h8"/></svg>',
+ restart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
+ pick:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="m8 12 3 3 5-6"/></svg>',
  shuffle:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>'
 };
 
@@ -253,6 +291,8 @@ let P=blank();
 try{const raw=localStorage.getItem(KEY); if(raw){const o=JSON.parse(raw); P=Object.assign(blank(),o); if(typeof P.L!=='string'||P.L.length!==N) P.L=(P.L||'').padEnd(N,'0').slice(0,N);}}catch(e){}
 const lvl=i=>+P.L[i];
 function setLvl(i,v){ if(lvl(i)===v) return; if(v===2&&lvl(i)!==2){const t=today(); P.days[t]=(P.days[t]||0)+1;} P.L=P.L.slice(0,i)+v+P.L.slice(i+1); save(); }
+function setMany(ids,v){ const a=P.L.split(''); for(const i of ids) a[i]=String(v); P.L=a.join(''); save(); }
+function bulk(ids,v,msg){ const prev=P.L; setMany(ids,v); toast(msg,'Qaytarish',()=>{P.L=prev; save(); if(sess) view.restart=true; rerender();}); }
 function save(){ try{localStorage.setItem(KEY,JSON.stringify(P))}catch(e){} queueCloud(); }
 const known=()=>{let c=0;for(let i=0;i<N;i++) if(P.L.charCodeAt(i)===50) c++; return c};
 const fKnown=f=>{let c=0;for(let i=f*100;i<Math.min(N,f*100+100);i++) if(P.L.charCodeAt(i)===50) c++; return c};
@@ -299,15 +339,21 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 const shuf=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
 const idxs=f=>{const a=[];for(let i=f*100;i<f*100+fSize(f);i++)a.push(i);return a};
 const tr1=i=>W[i][3].split(';')[0].trim();
-function toast(m){ const t=document.createElement('div'); t.className='toast'; t.textContent=m; document.body.appendChild(t); setTimeout(()=>t.remove(),2600) }
+function toast(m,btn,fn){ document.querySelectorAll('.toast').forEach(x=>x.remove()); const t=document.createElement('div'); t.className='toast'; const s=document.createElement('span'); s.textContent=m; t.appendChild(s);
+  if(btn){ const b=document.createElement('button'); b.textContent=btn; b.onclick=()=>{fn();t.remove()}; t.appendChild(b); }
+  document.body.appendChild(t); setTimeout(()=>t.remove(),btn?7000:2600) }
 const pad=n=>String(n).padStart(2,'0');
 function ringSVG(p,size){const r=52,c=2*Math.PI*r;return `<svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="${r}" fill="none" stroke="var(--surface-2)" stroke-width="12"/><circle cx="60" cy="60" r="${r}" fill="none" stroke="var(--accent)" stroke-width="12" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c*(1-p)}"/></svg>`}
 const readHTML=i=>`<span class="read"><small>o'qilishi:</small>${esc(W[i][2])}</span>`;
 
 /* ---------- router ---------- */
 let view={name:'home'};
-function go(v){ view=v; try{speechSynthesis.cancel()}catch(e){} rerender(); window.scrollTo({top:0}); }
-function rerender(){ if(view.name==='home') renderHome(); else renderFolder(); }
+function go(v){ if(typeof stopMic==='function') stopMic(); view=v; try{speechSynthesis.cancel()}catch(e){} rerender(); window.scrollTo({top:0}); }
+function rerender(){ if(view.name==='home') renderHome(); else if(view.name==='exam') renderExamPage(); else renderFolder(); }
+function renderExamPage(){
+  $app.innerHTML=`<header class="fhead"><button class="iconbtn" data-act="home" aria-label="Orqaga">${I.back}</button><div style="min-width:0;flex:1"><h2>Sinov</h2><div class="sub">Barcha papkalardan yodlangan ${known()} ta so'z</div></div></header><div id="pane"></div>`;
+  paneExam(document.getElementById('pane'),null);
+}
 
 /* ---------- home ---------- */
 function nextFolder(){ for(let f=0;f<FOLDERS;f++) if(fKnown(f)<fSize(f)) return f; return 0 }
@@ -322,6 +368,7 @@ function renderHome(){
      <div><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span class="muted">Kunlik maqsad</span><b style="font-variant-numeric:tabular-nums">${Math.min(td,P.goal)} / ${P.goal}</b></div><div class="goalbar"><i style="width:${Math.min(100,td/P.goal*100)}%"></i></div></div>
     </div></div>
    <div class="cta"><button class="btn primary" data-act="open" data-f="${nf}" data-tab="cards">${I.play} Davom etish: ${nf+1}-papka</button>
+   <button class="btn" data-act="exampage" ${k<1?'disabled':''}>${I.mic} Yodlanganlardan sinov</button>
    <button class="btn" data-act="mixreview" ${k<5?'disabled':''}>${I.shuffle} Aralash takrorlash</button></div>
   </section>
   <div class="sec-h"><div><div class="label">Kartochka papkalari</div><h2>${FOLDERS} ta papka, har birida 100 ta so'z</h2></div></div>
@@ -336,12 +383,12 @@ function renderHome(){
       <div class="meta"><span>${n}/${s}</span><span>${done?'Yodlandi':n?'Jarayonda':'Yangi'}</span></div></button>`;
   }
   h+=`</div>
-  <div class="help" style="margin-top:22px"><b>Qanday ishlaydi:</b> papkani oching → kartochkani bosib tarjimasini ko'ring → <b>Bilaman</b> yoki <b>Bilmayman</b> ni bosing (telefonda o'ngga yoki chapga suring). Bilmagan so'zlaringiz qayta-qayta chiqadi. 100 ta so'z tugagach, <b>Gaplar</b> va <b>Test</b> bo'limlarida mustahkamlang. O'qilishidagi <b>KATTA</b> bo'g'in urg'uli; <b>ə</b> "a" bilan "e" orasidagi qisqa tovush; <b>th</b> va <b>dh</b> tilni tishlar orasiga qo'yib aytiladi.</div>`;
+  <div class="help" style="margin-top:22px"><b>Qanday ishlaydi:</b> papkani oching → kartochkani bosib tarjimasini ko'ring → <b>Bilaman</b> yoki <b>Bilmayman</b> ni bosing (telefonda o'ngga yoki chapga suring). Bilmagan so'zlaringiz qayta-qayta chiqadi. 100 ta so'z tugagach, <b>Gaplar</b> va <b>Test</b> bo'limlarida mustahkamlang, <b>Sinov</b> bo'limida esa javobni ovoz bilan aytib yoki yozib tekshiring. <b>Ro'yxat</b> bo'limida xohlagan so'zlaringizni tanlab o'rganishingiz yoki barcha belgilarni bir bosishda qo'yib yoki olib tashlashingiz mumkin. O'qilishidagi <b>KATTA</b> bo'g'in urg'uli; <b>ə</b> "a" bilan "e" orasidagi qisqa tovush; <b>th</b> va <b>dh</b> tilni tishlar orasiga qo'yib aytiladi.</div>`;
   $app.innerHTML=h;
 }
 
 /* ---------- folder ---------- */
-const TABS=[['cards','Kartochkalar',I.cards],['list',"Ro'yxat",I.list],['sents','Gaplar',I.chat],['test','Test',I.test]];
+const TABS=[['cards','Kartochkalar',I.cards],['list',"Ro'yxat",I.list],['sents','Gaplar',I.chat],['test','Test',I.test],['exam','Sinov',I.mic]];
 function renderFolder(){
   const f=view.f, s=fSize(f), n=fKnown(f);
   let h=`<header class="fhead"><button class="iconbtn" data-act="home" aria-label="Orqaga">${I.back}</button>
@@ -349,7 +396,7 @@ function renderFolder(){
    <nav class="tabs">${TABS.map(t=>`<button class="tab${view.tab===t[0]?' on':''}" data-act="tab" data-tab="${t[0]}">${t[2]}<span>${t[1]}</span></button>`).join('')}</nav><div id="pane"></div>`;
   $app.innerHTML=h;
   const pane=document.getElementById('pane');
-  ({cards:paneCards,list:paneList,sents:paneSents,test:paneTest})[view.tab](pane,f);
+  ({cards:paneCards,list:paneList,sents:paneSents,test:paneTest,exam:paneExam})[view.tab](pane,f);
 }
 
 /* ----- flashcards ----- */
@@ -360,16 +407,18 @@ function startSession(f,mode,custom){
   else if(mode==='review') q=shuf(idxs(f).filter(i=>lvl(i)===2));
   else { const a=idxs(f).filter(i=>lvl(i)!==2); q=a.filter(i=>lvl(i)===1).concat(a.filter(i=>lvl(i)===0)); }
   if(!custom && P.size!=='all') q=q.slice(0,+P.size);
-  sess={f,mode,q,pos:0,total:q.length,good:0,bad:0,flip:false,seen:new Set()};
+  sess={f,mode,q,pos:0,total:q.length,good:0,bad:0,flip:false,seen:new Set(),custom:!!custom};
 }
 function paneCards(pane,f){
   if(!sess||sess.f!==f||view.restart){ startSession(f,view.mode||'new',view.custom); view.restart=false; view.custom=null; }
   const mode=sess.mode;
   let h=`<div class="study"><div class="chips">
-    <button class="chip${mode==='new'?' on':''}" data-act="mode" data-mode="new">O'rganish</button>
+    <button class="chip${mode==='new'&&!sess.custom?' on':''}" data-act="mode" data-mode="new">O'rganish</button>
     <button class="chip${mode==='review'?' on':''}" data-act="mode" data-mode="review" ${fKnown(f)?'':'disabled'}>Takrorlash (${fKnown(f)})</button>
+    ${sess.custom?`<button class="chip on" data-act="mode" data-mode="${mode}">Tanlangan: ${sess.total}</button>`:''}
     <span style="flex:1"></span>
-    <button class="chip" data-act="dir">${P.dir==='en'?'EN → UZ':'UZ → EN'}</button></div>`;
+    <button class="chip" data-act="dir">${P.dir==='en'?'EN → UZ':'UZ → EN'}</button></div>
+   <div class="toolbar"><button class="btn sm" data-act="gopick">${I.pick} Tanlab o'rganish</button><button class="btn sm" data-act="restartf" ${fKnown(f)||idxs(f).some(i=>lvl(i)===1)?'':'disabled'}>${I.restart} Papkani qaytadan boshlash</button></div>`;
   if(!sess.q.length){
     const all=fKnown(f)>=fSize(f);
     h+=`<div class="qbox empty">${all?'<div class="stamp">Papka yodlandi</div>':''}<h3>${all?"Barakalla! 100 ta so'zning hammasini bilasiz":sess.total?"Seans tugadi":"Bu yerda hozircha so'z yo'q"}</h3>
@@ -421,14 +470,23 @@ function paneList(pane,f){
   const flt=view.flt||'all', q=(view.q||'').toLowerCase();
   let a=idxs(f); if(flt==='new') a=a.filter(i=>lvl(i)!==2); if(flt==='known') a=a.filter(i=>lvl(i)===2);
   if(q) a=a.filter(i=>W[i][0].toLowerCase().includes(q)||W[i][3].toLowerCase().includes(q));
+  view.listIds=a;
+  const sel=view.sel||(view.sel=new Set());
+  const allSel=a.length>0&&a.every(i=>sel.has(i));
+  const base=f*100, rs=[];
+  for(let s=0;s<fSize(f);s+=20) rs.push([s,Math.min(fSize(f),s+20)]);
   let h=`<input class="search" id="q" type="search" placeholder="Qidirish: inglizcha yoki o'zbekcha" value="${esc(view.q||'')}">
-   <div class="chips"><button class="chip${flt==='all'?' on':''}" data-act="flt" data-v="all">Hammasi</button><button class="chip${flt==='new'?' on':''}" data-act="flt" data-v="new">O'rganilmagan</button><button class="chip${flt==='known'?' on':''}" data-act="flt" data-v="known">Bilaman</button>
-   <span class="muted" style="font-size:13px">Doirachani bosib holatini o'zgartiring</span></div><div class="list">`;
-  for(const i of a){ const l=lvl(i);
-    h+=`<div class="row"><span class="n">${i+1}</span><div style="min-width:0"><div><span class="w">${esc(W[i][0])}</span><span class="ip">${esc(W[i][1])}</span></div><div class="rd">${esc(W[i][2])}</div><div class="t">${esc(W[i][3])}</div></div>
-     <div class="acts"><button class="speak sm soft" data-act="say" data-i="${i}" aria-label="Eshitish">${I.speak}</button><button class="stbtn s${l}" data-act="cyc" data-i="${i}" aria-label="Holat">${l===2?I.check:''}</button></div></div>`; }
+   <div class="chips"><button class="chip${flt==='all'?' on':''}" data-act="flt" data-v="all">Hammasi</button><button class="chip${flt==='new'?' on':''}" data-act="flt" data-v="new">O'rganilmagan</button><button class="chip${flt==='known'?' on':''}" data-act="flt" data-v="known">Yodlangan</button></div>
+   <div class="toolbar"><button class="btn sm" data-act="markall" data-v="2" ${a.length?'':'disabled'}>${I.check} Barchasini belgilash</button><button class="btn sm" data-act="markall" data-v="0" ${a.some(i=>lvl(i))?'':'disabled'}>${I.x} Barcha belgilarni olib tashlash</button></div>
+   <div class="ranges"><span class="label" style="margin-right:4px">Tanlash:</span><button class="chip${allSel?' on':''}" data-act="selall">Hammasi</button>${rs.map(([x,y])=>{const ids=[];for(let j=x;j<y;j++)ids.push(base+j);const on=ids.every(i=>sel.has(i));return `<button class="chip${on?' on':''}" data-act="selrange" data-a="${base+x}" data-b="${base+y}">${base+x+1}–${base+y}</button>`}).join('')}${sel.size?`<button class="chip" data-act="selnone">Tozalash</button>`:''}</div>
+   <div class="list">`;
+  for(const i of a){ const l=lvl(i), on=sel.has(i);
+    h+=`<div class="row${on?' sel':''}"><input type="checkbox" class="ck" data-act="sel" data-i="${i}" ${on?'checked':''} aria-label="${esc(W[i][0])} tanlash"><span class="n">${i+1}</span><div style="min-width:0"><div><span class="w">${esc(W[i][0])}</span><span class="ip">${esc(W[i][1])}</span></div><div class="rd">${esc(W[i][2])}</div><div class="t">${esc(W[i][3])}</div></div>
+     <div class="acts"><button class="speak sm soft" data-act="say" data-i="${i}" aria-label="Eshitish">${I.speak}</button><button class="stbtn s${l}" data-act="cyc" data-i="${i}" aria-label="Yodlandi belgisi">${l===2?I.check:''}</button></div></div>`; }
   if(!a.length) h+=`<div class="row" style="grid-template-columns:1fr"><span class="muted">Hech narsa topilmadi.</span></div>`;
-  pane.innerHTML=h+'</div>';
+  h+='</div>';
+  if(sel.size) h+=`<div class="selbar"><b>${sel.size} ta tanlandi</b><button class="btn sm primary" data-act="studysel">${I.cards} Yodlash</button><button class="btn sm" data-act="examsel">${I.mic} Sinov</button><button class="btn sm" data-act="marksel" data-v="2">${I.check} Belgilash</button><button class="btn sm" data-act="marksel" data-v="0">${I.x} Belgini olish</button></div>`;
+  pane.innerHTML=h;
   const inp=document.getElementById('q'); inp.addEventListener('input',()=>{view.q=inp.value; const p=inp.selectionStart; paneList(pane,f); const n=document.getElementById('q'); n.focus(); try{n.setSelectionRange(p,p)}catch(e){} });
 }
 
@@ -513,6 +571,113 @@ function testResult(pane,T){
    <div class="cta" style="justify-content:center">${wr.length?`<button class="btn primary" data-act="drill">${I.cards} Xatolarni takrorlash</button>`:''}<button class="btn" data-act="tstart">Qayta topshirish</button>${f+1<FOLDERS?`<button class="btn" data-act="open" data-f="${f+1}" data-tab="cards">${f+2}-papka →</button>`:''}</div></div>`;
 }
 
+/* ---------- sinov (recall exam: typing + voice) ---------- */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition||null;
+const APOS=/[ʻʼ‘’`´']/g;
+const normU=s=>s.toLowerCase().replace(APOS,'').replace(/\(.*?\)/g,' ').replace(/[^\p{L}\p{N}\s-]/gu,' ').replace(/-/g,' ').replace(/\s+/g,' ').trim();
+const normE=s=>s.toLowerCase().replace(APOS,'').replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
+const SPOKEN={'mr.':['mister','mr'],'mrs.':['missus','misses','mrs'],'dr.':['doctor','dr'],'st.':['street','saint','st'],'etc.':['etcetera','et cetera','etc'],'tv':['tv','t v','television'],'i':['i','eye','aye']};
+function lev(a,b){ if(a===b) return 0; const m=a.length,n=b.length; if(!m||!n) return m||n; let p=Array.from({length:n+1},(_,j)=>j);
+  for(let i=1;i<=m;i++){ const c=[i]; for(let j=1;j<=n;j++) c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1)); p=c } return p[n] }
+function uzVariants(i){ const out=new Set(); for(const part of W[i][3].split(/[;,\/]/)){ const a=normU(part); if(a) out.add(a); const b=normU(part.replace(/[()]/g,' ')); if(b) out.add(b); } return [...out] }
+function enVariants(i){ const w=W[i][0]; const k=w.toLowerCase(); const v=new Set([normE(w)]); (SPOKEN[k]||[]).forEach(x=>v.add(normE(x))); return [...v] }
+/* returns 'ok' | 'typo' | false */
+function judge(answers,q){
+  const uz=q.dir==='en', vs=uz?uzVariants(q.i):enVariants(q.i), nz=uz?normU:normE; let best=false;
+  for(const raw of answers){ const a=nz(raw||''); if(!a) continue; const a0=a.replace(/ /g,'');
+    for(const v of vs){ if(a===v||a0===v.replace(/ /g,'')) return 'ok';
+      if(uz){ const tol=v.length>=7?2:v.length>=4?1:0; if(lev(a,v)<=tol) best='typo';
+        const vw=v.split(' '); if(vw.length>1&&vw[0]===a&&a.length>=4) best='typo';
+        if(a.split(' ').includes(v)&&v.length>=3) best='typo'; } } }
+  return best }
+function examPool(f,scope){
+  if(scope==='sel'&&view.sel&&view.sel.size) return [...view.sel];
+  const r=[]; const lo=scope==='folder'&&f!=null?f*100:0, hi=scope==='folder'&&f!=null?f*100+fSize(f):N;
+  for(let i=lo;i<hi;i++) if(lvl(i)===2) r.push(i); return r }
+function paneExam(pane,f){
+  const X=view.X;
+  if(!X||X.f!==f) return examSetup(pane,f);
+  if(X.pos>=X.qs.length) return examResult(pane,X);
+  const q=X.qs[X.pos], A=q.res, en=q.dir==='en';
+  const prompt=en?`<div class="qmain">${esc(W[q.i][0])}</div><div style="display:flex;justify-content:center;gap:10px;align-items:center"><span class="ipa">${esc(W[q.i][1])}</span><button class="speak sm soft" data-act="say" data-i="${q.i}" aria-label="Eshitish">${I.speak}</button></div>`
+     :`<div class="qmain">${esc(W[q.i][3])}</div>`;
+  let fb='';
+  if(A){ const right=en?esc(W[q.i][3]):esc(W[q.i][0]);
+    fb=A.ok?`<div class="fb ok">${A.typo?"To'g'ri (kichik imlo xatosi bor). ":"To'g'ri! "}Yodlangan belgisi saqlandi.</div>`
+      :`<div class="fb no">Noto'g'ri. Bu so'z qayta o'rganishga qo'yildi.</div>`;
+    fb+=`<div class="help" style="text-align:left;display:grid;gap:4px"><div><b>${esc(W[q.i][0])}</b> <span class="ipa" style="font-size:15px">${esc(W[q.i][1])}</span> · ${esc(W[q.i][2])}</div><div>${esc(W[q.i][3])}</div>${A.given?`<div class="youans">Sizning javobingiz: ${esc(A.given)}</div>`:''}</div>`;
+  }
+  pane.innerHTML=`<div class="study"><div class="sprog"><span>${X.pos+1}/${X.qs.length}</span><div class="goalbar"><i style="width:${X.pos/X.qs.length*100}%"></i></div><span>${X.score} to'g'ri</span></div>
+   <div class="qbox"><span class="badge go qtype">${en?"O'zbekchasini ayting yoki yozing":"Inglizchasini ayting yoki yozing"}</span>${prompt}
+    <div class="ansrow"><input class="tin${A?(A.ok?' ok':' no'):''}" id="xin" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${en?'tarjimasi…':'english…'}" value="${A?esc(A.given||''):''}" ${A?'disabled':''}>
+     ${SR&&!A?`<button class="mic sm" id="micbtn" data-act="mic" aria-label="Ovoz bilan javob berish">${I.mic}</button>`:''}</div>
+    ${!A?`<div class="muted" style="font-size:13px" id="micnote">${SR?(en?"Mikrofonni bosib o'zbekcha ayting":"Mikrofonni bosib inglizcha ayting"):"Bu brauzerda ovoz bilan javob berish yo'q. Chrome yoki Safari'da oching."}</div>`:''}
+    ${fb}
+    <div class="cta" style="justify-content:center">${A?`<button class="btn primary" data-act="xnext" id="xnext">${X.pos+1<X.qs.length?'Keyingi':'Natijani ko\'rish'}</button>${A.ok?'':`<button class="btn" data-act="xoverride">${I.check} Men to'g'ri aytgandim</button>`}`
+      :`<button class="btn bad" data-act="xskip">Bilmayman</button><button class="btn primary" data-act="xcheck">Tekshirish</button>`}</div></div></div>`;
+  if(!A&&en&&P.auto) setTimeout(()=>speak(W[q.i][0]),150);
+  const inp=document.getElementById('xin'); if(inp&&!A){ if(!('ontouchstart' in window)) inp.focus(); inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();act('xcheck',{})}}); }
+  const nx=document.getElementById('xnext'); if(nx) nx.focus({preventScroll:true});
+}
+function examSetup(pane,f){
+  const c=P.ex||(P.ex={dir:'mix',n:20,scope:f==null?'all':'folder'});
+  if(f==null) c.scope='all'; else if(c.scope==='all'&&!examPool(f,'all').length) c.scope='folder';
+  if(c.scope==='sel'&&!(view.sel&&view.sel.size)) c.scope=f==null?'all':'folder';
+  const pool=examPool(f,c.scope);
+  const seg=(k,vals)=>`<div class="seg">${vals.map(([v,l,dis])=>`<button class="chip${String(c[k])===String(v)?' on':''}" data-act="xcfg" data-k="${k}" data-v="${v}" ${dis?'disabled':''}>${l}</button>`).join('')}</div>`;
+  const scopes=f==null?[['all',`Barcha yodlanganlar (${known()})`]]:[['folder',`Shu papkadagi yodlanganlar (${examPool(f,'folder').length})`],['all',`Barcha papkalardan (${known()})`],...(view.sel&&view.sel.size?[['sel',`Tanlanganlar (${view.sel.size})`]]:[])];
+  pane.innerHTML=`<div class="qbox"><div class="ikat"></div><h3 style="font-size:24px">Yodlaganingizni sinab ko'ring</h3>
+   <p class="muted" style="margin:0">So'z ko'rsatiladi, siz uning tarjimasini <b>ovoz bilan aytasiz</b> yoki <b>yozasiz</b>. Dastur javobni o'zi tekshiradi: to'g'ri topganlaringizda yodlangan belgisi qoladi, xato qilganlaringiz qayta o'rganishga o'tadi.</p>
+   <div class="cfg">
+    <div class="set"><span class="label">Qaysi so'zlar</span>${seg('scope',scopes)}</div>
+    <div class="set"><span class="label">Savol turi</span>${seg('dir',[['mix','Aralash'],['en','Inglizcha → o\'zbekcha'],['uz','O\'zbekcha → inglizcha']])}</div>
+    <div class="set"><span class="label">Savollar soni</span>${seg('n',[[10,'10'],[20,'20'],[50,'50'],['all','Hammasi']])}</div>
+   </div>
+   ${pool.length?'':`<div class="help">Hali yodlangan so'z yo'q. Avval kartochkalarda so'zlarni "Bilaman" deb belgilang yoki Ro'yxat bo'limida tanlang.</div>`}
+   <button class="btn primary" data-act="xstart" ${pool.length?'':'disabled'}>${I.play} Sinovni boshlash</button>
+   ${SR?'':`<div class="help">Bu brauzer ovozni tanimaydi, shuning uchun javoblarni yozib berasiz. Ovoz bilan javob berish uchun saytni telefonda Chrome yoki Safari'da oching.</div>`}</div>`;
+}
+function examStart(f){
+  const c=P.ex; const pool=shuf(examPool(f,c.scope)); const n=c.n==='all'?pool.length:Math.min(+c.n,pool.length);
+  const qs=pool.slice(0,n).map((i,k)=>({i,dir:c.dir==='mix'?(Math.random()<.5?'en':'uz'):c.dir,res:null}));
+  view.X={f,qs,pos:0,score:0};
+}
+function examAnswer(answers,voice){
+  const X=view.X,q=X.qs[X.pos]; if(q.res) return;
+  q.voice=!!voice; const given=answers[0]||'';
+  const r=judge(answers,q);
+  q.res={ok:!!r,typo:r==='typo',given};
+  if(q.res.ok){ X.score++; setLvl(q.i,2); } else setLvl(q.i,1);
+  speak(W[q.i][0]);
+  paneExam(document.getElementById('pane'),view.X.f);
+}
+let rec=null;
+function stopMic(){ if(rec){ const r=rec; rec=null; try{r.onend=null;r.abort()}catch(e){} } }
+function startMic(){
+  const X=view.X,q=X&&X.qs[X.pos]; if(!SR||!q||q.res) return;
+  if(rec){ try{rec.stop()}catch(e){} return; }
+  try{speechSynthesis.cancel()}catch(e){}
+  const r=new SR(); rec=r; r.lang=q.dir==='en'?'uz-UZ':'en-US'; r.interimResults=true; r.maxAlternatives=5; r.continuous=false;
+  const btn=document.getElementById('micbtn'), inp=document.getElementById('xin'), note=document.getElementById('micnote');
+  btn&&btn.classList.add('on'); if(note) note.textContent='Gapiring… (to\'xtatish uchun yana bosing)';
+  let finals=null;
+  r.onresult=e=>{ const res=e.results[e.results.length-1]; if(inp) inp.value=res[0].transcript; if(res.isFinal){ finals=[]; for(let k=0;k<res.length;k++) finals.push(res[k].transcript); } };
+  r.onerror=e=>{ const m={'not-allowed':"Mikrofonga ruxsat bering: brauzer manzil satridagi qulf belgisini bosing.",'service-not-allowed':"Mikrofonga ruxsat bering.",'no-speech':"Ovoz eshitilmadi. Yana bosib, aniqroq ayting.",'language-not-supported':"Bu qurilma o'zbekcha ovozni tanimaydi. Javobni yozib bering.",'network':"Ovozni tanish uchun internet kerak.",'audio-capture':"Mikrofon topilmadi."}[e.error]; if(m) toast(m); };
+  r.onend=()=>{ rec=null; const b=document.getElementById('micbtn'); b&&b.classList.remove('on'); const nt=document.getElementById('micnote'); if(nt) nt.textContent='Yana urinish uchun mikrofonni bosing yoki yozing';
+    if(finals&&finals.length&&view.X&&view.X.qs[view.X.pos]===q) examAnswer(finals,true); };
+  try{ r.start() }catch(e){ rec=null; btn&&btn.classList.remove('on'); toast("Mikrofonni ishga tushirib bo'lmadi."); }
+}
+function examResult(pane,X){
+  const tot=X.qs.length, pct=Math.round(X.score/tot*100);
+  const stars=pct>=90?3:pct>=70?2:pct>=40?1:0;
+  const wrong=X.qs.filter(q=>!q.res||!q.res.ok).map(q=>q.i);
+  pane.innerHTML=`<div class="qbox result"><div class="stars">${[0,1,2].map(k=>`<span class="${k<stars?'':'off'}">${I.star}</span>`).join('')}</div><div class="big">${pct}%</div>
+   <div class="muted">${X.score} / ${tot} to'g'ri</div>
+   <p style="margin:0;max-width:44ch">${wrong.length?`${wrong.length} ta so'zdan yodlangan belgisi olib tashlandi. Ular kartochkalarda yana chiqadi.`:"Hammasi to'g'ri! Barcha belgilar saqlandi."}</p>
+   <div class="reslist">${X.qs.map(q=>{const ok=q.res&&q.res.ok;return `<div class="resrow"><span class="${ok?'ok':'no'}">${ok?I.check:I.x}</span><div style="min-width:0"><b>${esc(W[q.i][0])}</b> — ${esc(tr1(q.i))}${q.res&&q.res.given&&!ok?`<div class="youans">Siz: ${esc(q.res.given)}</div>`:''}</div><button class="speak sm soft" data-act="say" data-i="${q.i}" aria-label="Eshitish">${I.speak}</button></div>`}).join('')}</div>
+   <div class="cta" style="justify-content:center">${wrong.length?`<button class="btn primary" data-act="xdrill">${I.cards} Xatolarni kartochkada o'rganish</button>`:''}<button class="btn" data-act="xagain">${I.restart} Yangi sinov</button></div></div>`;
+}
+
 /* ---------- settings ---------- */
 function settings(){
   const seg=(k,vals)=>`<div class="seg">${vals.map(([v,l])=>`<button class="chip${String(P[k])===String(v)?' on':''}" data-act="set" data-k="${k}" data-v="${v}">${l}</button>`).join('')}</div>`;
@@ -531,7 +696,27 @@ function act(a,d,el){
   switch(a){
   case 'home': sess=null; go({name:'home'}); break;
   case 'open': sess=null; go({name:'folder',f:+d.f,tab:d.tab||'cards',restart:true}); break;
-  case 'tab': view.tab=d.tab; view.T=null; view.build=null; if(d.tab==='cards') view.restart=true; renderFolder(); window.scrollTo({top:0}); break;
+  case 'exampage': stopMic(); go({name:'exam'}); break;
+  case 'restartf': { const f=view.f; bulk(idxs(f),0,`${f+1}-papka qaytadan boshlandi`); view.mode='new'; view.restart=true; view.custom=null; renderFolder(); break; }
+  case 'gopick': view.tab='list'; view.flt='all'; renderFolder(); toast("So'zlarni belgilang va pastdagi «Yodlash» tugmasini bosing"); break;
+  case 'markall': { const ids=view.listIds||idxs(view.f); const v=+d.v; bulk(ids,v,v?`${ids.length} ta so'z yodlandi deb belgilandi`:`${ids.length} ta so'zdan belgi olib tashlandi`); renderFolder(); break; }
+  case 'sel': { const i=+d.i; view.sel.has(i)?view.sel.delete(i):view.sel.add(i); paneList(document.getElementById('pane'),view.f); break; }
+  case 'selall': { const ids=view.listIds||[]; const all=ids.every(i=>view.sel.has(i)); ids.forEach(i=>all?view.sel.delete(i):view.sel.add(i)); paneList(document.getElementById('pane'),view.f); break; }
+  case 'selrange': { const ids=[];for(let i=+d.a;i<+d.b;i++) ids.push(i); const all=ids.every(i=>view.sel.has(i)); ids.forEach(i=>all?view.sel.delete(i):view.sel.add(i)); paneList(document.getElementById('pane'),view.f); break; }
+  case 'selnone': view.sel.clear(); paneList(document.getElementById('pane'),view.f); break;
+  case 'studysel': { const ids=[...view.sel].sort((a,b)=>a-b); view.tab='cards'; view.custom=ids; view.restart=true; renderFolder(); window.scrollTo({top:0}); break; }
+  case 'examsel': P.ex=Object.assign(P.ex||{dir:'mix',n:20},{scope:'sel'}); view.tab='exam'; view.X=null; renderFolder(); window.scrollTo({top:0}); break;
+  case 'marksel': { const ids=[...view.sel], v=+d.v; bulk(ids,v,v?`${ids.length} ta so'z belgilandi`:`${ids.length} ta so'zdan belgi olindi`); paneList(document.getElementById('pane'),view.f); refreshSub(); break; }
+  case 'xcfg': { const c=P.ex; let v=d.v; if(d.k==='n'&&v!=='all') v=+v; c[d.k]=v; save(); paneExam(document.getElementById('pane'),view.name==='exam'?null:view.f); break; }
+  case 'xstart': case 'xagain': { const f=view.name==='exam'?null:view.f; view.X=null; examStart(f); paneExam(document.getElementById('pane'),f); window.scrollTo({top:0}); break; }
+  case 'xcheck': { const t=document.getElementById('xin'); if(!t||!t.value.trim()){ toast("Javobni yozing yoki mikrofonni bosing"); return } stopMic(); examAnswer([t.value],false); break; }
+  case 'xskip': stopMic(); examAnswer([''],false); break;
+  case 'mic': startMic(); break;
+  case 'xoverride': { const X=view.X,q=X.qs[X.pos]; if(q.res&&!q.res.ok){ q.res.ok=true; X.score++; setLvl(q.i,2); paneExam(document.getElementById('pane'),X.f);} break; }
+  case 'xnext': view.X.pos++; paneExam(document.getElementById('pane'),view.X.f); window.scrollTo({top:0}); break;
+  case 'xdrill': { const X=view.X; const wr=X.qs.filter(q=>!q.res||!q.res.ok).map(q=>q.i); const f=X.f!=null?X.f:Math.floor(wr[0]/100);
+      sess=null; view={name:'folder',f,tab:'cards',restart:true,custom:shuf(wr)}; renderFolder(); window.scrollTo({top:0}); break; }
+  case 'tab': stopMic(); view.tab=d.tab; view.T=null; view.build=null; view.X=null; if(d.tab==='cards') view.restart=true; renderFolder(); window.scrollTo({top:0}); break;
   case 'mode': view.mode=d.mode; view.restart=true; paneCards(document.getElementById('pane'),view.f); break;
   case 'dir': P.dir=P.dir==='en'?'uz':'en'; save(); if(sess) sess.flip=false; paneCards(document.getElementById('pane'),view.f); break;
   case 'say': speak(W[+d.i][0]); break;
