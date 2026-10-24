@@ -56,6 +56,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-v
   padding:calc(24px + env(safe-area-inset-top,0px)) max(20px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) max(20px,env(safe-area-inset-left,0px));
   transition:opacity .55s ease,transform .55s ease}
 #splash.out{opacity:0;transform:scale(1.04);pointer-events:none}
+#splash.ready .sp-greet{animation-delay:0s}
+#splash.ready .sp-act{animation-delay:.12s}
 .sp-in{position:relative;z-index:2;display:grid;justify-items:center;gap:18px;text-align:center;max-width:440px;width:100%}
 .sp-logo{width:112px;height:112px;position:relative;filter:drop-shadow(0 22px 40px rgba(0,0,0,.4))}
 .sp-logo svg{width:100%;height:100%;overflow:visible}
@@ -686,6 +688,7 @@ function splashShell(inner){
     const words=['hello','world','learn','speak','friend','dream','home','music','water','future','listen','write','story','light','question','journey'];
     let bg=''; for(let k=0;k<14;k++){ const w=words[k%words.length]; bg+=`<span class="sp-word" style="left:${(k*37)%92}%;top:${100+(k*13)%40}%;font-size:${18+(k*7)%30}px;animation-duration:${18+(k*5)%16}s;animation-delay:-${(k*3)%18}s">${w}</span>`; }
     const title="So'z Sandig'i".split('').map((c,k)=>`<span style="animation-delay:${1.5+k*.04}s">${c===' '?'&nbsp;':esc(c)}</span>`).join('');
+    setTimeout(()=>el.classList.add('ready'),2400);
     el.innerHTML=bg+`<div class="sp-in"><div class="sp-logo">${logoSVG(true)}</div><div class="sp-title">${title}</div><div id="spBody" style="display:grid;gap:18px;width:100%;justify-items:center"></div></div>`; }
   $('spBody').innerHTML=inner;
 }
@@ -797,12 +800,140 @@ function splashWelcome(){
   setTimeout(()=>sayHi(first),500);
   $('spGo').onclick=()=>{ if(!greeted) sayHi(first); setTimeout(finishSplash,greeted?0:250); };
 }
+/* ================= serverless invite links (admin-signed, ECDSA P-256) ================= */
+const ADMIN_PUB={"kty":"EC","crv":"P-256","x":"CI8yGnmblAt0FDXcrmM1zZOnHSbxgdlVLwtAeeVxkwk","y":"X7Qh-g--HmVvAXpoqXknvgL3ly1XeUaOEnAzzkJUM6c"};
+const LK={adm:'ss-admin-key',users:'ss-admin-users',dev:'ss-device',tok:'ss-access'};
+const b64u={ enc:b=>btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''),
+  dec:s=>{ s=s.replace(/-/g,'+').replace(/_/g,'/'); while(s.length%4) s+='='; return Uint8Array.from(atob(s),c=>c.charCodeAt(0)) } };
+const tjson=o=>b64u.enc(new TextEncoder().encode(JSON.stringify(o)));
+const pjson=s=>JSON.parse(new TextDecoder().decode(b64u.dec(s)));
+const lsGet=k=>{ try{ return JSON.parse(localStorage.getItem(k)||'null') }catch(e){ return null } };
+const lsSet=(k,v)=>{ try{ localStorage.setItem(k,JSON.stringify(v)) }catch(e){} };
+let adminKey=null;
+const ECA={name:'ECDSA',namedCurve:'P-256'}, SIG={name:'ECDSA',hash:'SHA-256'};
+async function pubKey(){ return crypto.subtle.importKey('jwk',ADMIN_PUB,ECA,false,['verify']) }
+async function privFromD(d){ return crypto.subtle.importKey('jwk',{...ADMIN_PUB,d,ext:true},ECA,false,['sign']) }
+async function checkD(d){ try{ const k=await privFromD(d); const m=new TextEncoder().encode('ss-check'); const s=await crypto.subtle.sign(SIG,k,m); return await crypto.subtle.verify(SIG,await pubKey(),s,m) }catch(e){ return false } }
+async function pwKey(pw,salt){ const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:250000,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']) }
+async function wrapD(d,pw){ const salt=crypto.getRandomValues(new Uint8Array(16)), iv=crypto.getRandomValues(new Uint8Array(12));
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},await pwKey(pw,salt),new TextEncoder().encode(d)); return {s:b64u.enc(salt),i:b64u.enc(iv),c:b64u.enc(ct)} }
+async function unwrapD(w,pw){ const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64u.dec(w.i)},await pwKey(pw,b64u.dec(w.s)),b64u.dec(w.c)); return new TextDecoder().decode(pt) }
+async function signTok(p){ const body=tjson(p); const s=await crypto.subtle.sign(SIG,adminKey,new TextEncoder().encode(body)); return body+'.'+b64u.enc(s) }
+async function verifyTok(t){ try{ const [body,sig]=t.split('.'); if(!body||!sig) return null; const ok=await crypto.subtle.verify(SIG,await pubKey(),b64u.dec(sig),new TextEncoder().encode(body)); return ok?pjson(body):null }catch(e){ return null } }
+function deviceId(){ let d=lsGet(LK.dev); if(!d){ d=b64u.enc(crypto.getRandomValues(new Uint8Array(9))); lsSet(LK.dev,d) } return d }
+const baseURL=()=>location.href.replace(/[#?].*$/,'').replace(/(admin|index)\.html$/,'');
+const DAY=864e5, TERM=30*DAY;
+function shareBox(url,text,label){ const tg=`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
+  return `<div style="display:grid;gap:8px;width:100%"><a class="sp-btn" href="${tg}" target="_blank" rel="noopener" style="text-decoration:none">${I.chat} Telegram orqali yuborish</a>
+   ${navigator.share?`<button class="sp-btn" style="background:rgba(255,255,255,.14);color:#fff" data-share="${esc(url)}" data-text="${esc(text)}">Boshqa ilova orqali</button>`:''}
+   <button class="sp-skip" data-copy="${esc(url)}">${label||'Linkni nusxalash'}</button></div>` }
+document.addEventListener('click',e=>{ const s=e.target.closest('[data-share]'); if(s){ navigator.share({title:"So'z Sandig'i",text:s.dataset.text,url:s.dataset.share}).catch(()=>{}); return }
+  const c=e.target.closest('[data-copy]'); if(c){ const t=c.dataset.copy; (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast('Link nusxalandi')).catch(()=>{ prompt&&0; toast('Nusxa olib bo\'lmadi — linkni belgilab oling') }) } });
+const stripHash=()=>{ try{ history.replaceState(null,'',location.pathname+location.search) }catch(e){} };
+function hashParam(k){ const m=location.hash.match(new RegExp('[#&]'+k+'=([^&]+)')); return m?decodeURIComponent(m[1]):null }
+
+/* ----- admin side ----- */
+function admUsers(){ return lsGet(LK.users)||[] }
+function admSave(u){ lsSet(LK.users,u); pendingN=u.filter(x=>x.status==='pending').length; renderNav() }
+function admAddRequest(code){ let r; try{ r=pjson(code) }catch(e){ return false } if(!r||!r.id||!r.n) return false;
+  const us=admUsers(); const ex=us.find(u=>u.id===r.id);
+  if(ex){ ex.name=String(r.n).slice(0,40); if(ex.status!=='approved') ex.status='pending'; ex.req=Date.now(); ex.renew=ex.status==='approved'; }
+  else us.unshift({id:r.id,name:String(r.n).slice(0,40),status:'pending',req:Date.now()});
+  admSave(us); toast(`Yangi so'rov: ${String(r.n).slice(0,40)}`); return true }
+function splashAdminFirst(d){
+  splashShell(`<div class="sp-greet"><div class="en">Admin parolini o'rnating</div><div class="uz">Bu qurilmada birinchi kirish. Faqat o'zingiz biladigan parol o'ylab toping. Keyingi safar admin sahifasiga shu parol bilan kirasiz.</div></div>
+   <form class="sp-act" id="spForm" autocomplete="on"><input type="hidden" name="username" value="admin" autocomplete="username">
+   <input class="sp-input" id="spName" maxlength="40" placeholder="Ismingiz" value="${esc(P.name||'')}" autocomplete="given-name" required>
+   <input class="sp-input" id="spPass" type="password" minlength="6" placeholder="Yangi parol (kamida 6 belgi)" autocomplete="new-password" required>
+   <input class="sp-input" id="spPass2" type="password" minlength="6" placeholder="Parolni takrorlang" autocomplete="new-password" required>
+   <div class="sp-err" id="spErr"></div><button class="sp-btn" id="spGo">${I.play} Saqlash va kirish</button></form>`);
+  $('spForm').addEventListener('submit',async e=>{ e.preventDefault(); const nm=$('spName').value.trim().replace(/\s+/g,' '), pw=$('spPass').value;
+    if(!nm) return $('spErr').textContent='Ismingizni kiriting.'; if(pw.length<6) return $('spErr').textContent="Parol kamida 6 ta belgi bo'lsin."; if(pw!==$('spPass2').value) return $('spErr').textContent='Parollar bir xil emas.';
+    $('spGo').disabled=true; lsSet(LK.adm,await wrapD(d,pw)); adminKey=await privFromD(d); P.name=nm; save(); adminOpen(true); });
+}
+function splashAdminUnlock(err){
+  splashShell(`<div class="sp-greet"><div class="en">Admin</div><div class="uz">Boshqaruv paneliga kirish uchun admin parolingizni kiriting.</div></div>
+   <form class="sp-act" id="spForm" autocomplete="on"><input type="hidden" name="username" value="admin" autocomplete="username"><input class="sp-input" id="spPass" type="password" placeholder="Admin paroli" autocomplete="current-password" required>
+   <div class="sp-err" id="spErr">${esc(err||'')}</div><button class="sp-btn" id="spGo">${I.play} Kirish</button>
+   <div class="uz" style="color:rgba(255,255,255,.6);font-size:13px">Parolni unutsangiz, shaxsiy admin linkingizni qayta oching va yangi parol o'rnating.</div></form>`);
+  $('spForm').addEventListener('submit',async e=>{ e.preventDefault(); $('spGo').disabled=true;
+    try{ const d=await unwrapD(lsGet(LK.adm),$('spPass').value); adminKey=await privFromD(d); adminOpen(false); }
+    catch(x){ $('spGo').disabled=false; $('spErr').textContent="Parol noto'g'ri."; } });
+}
+function adminOpen(first){ me={is_admin:true,name:P.name,local:true}; approved=false; const r=sp.req; sp.req=null; if(r) admAddRequest(r); pendingN=admUsers().filter(x=>x.status==='pending').length;
+  rerender(true); if(r){ view={name:'admin'}; rerender(true); } splashWelcomeLocal(first); }
+function splashWelcomeLocal(first){ const k=known(), st=streak();
+  splashShell(`<div class="sp-greet"><div class="en" id="spEn">${esc(first?'Nice to meet you':greetEN())}, ${esc(P.name||'')}!</div><div class="uz">${esc(greetUZ())}! ${k?`Siz ${k} ta so'z yodlagansiz${st?`, ${st} kundan beri ketma-ket o'qiyapsiz`:''}.`:"Bugun birinchi so'zlaringizni yodlaymiz."}</div></div>
+   <div class="sp-act"><button class="sp-btn" id="spGo">${I.play} Davom etish</button></div>`);
+  setTimeout(()=>sayHi(first),400); $('spGo').onclick=()=>{ if(!greeted) sayHi(first); setTimeout(finishSplash,greeted?0:250); }; }
+async function approveUser(id,days){ const us=admUsers(); const u=us.find(x=>x.id===id); if(!u||!adminKey) return;
+  const exp=Math.max(Date.now(),u.status==='approved'&&u.exp?u.exp:0)+(days||30)*DAY;
+  const tok=await signTok({v:1,id:u.id,n:u.name,exp,iat:Date.now()}); u.status='approved'; u.exp=exp; u.renew=false; u.link=baseURL()+'#a='+tok; admSave(us); return u }
+function renderAdminLocal(){
+  const us=admUsers(), pend=us.filter(u=>u.status==='pending'), act=us.filter(u=>u.status==='approved'), rem=us.filter(u=>u.status==='removed');
+  const left=u=>Math.ceil((u.exp-Date.now())/DAY);
+  const row=u=>{ const del=ADM.confirmDel===u.id, open=ADM.open===u.id, l=u.exp?left(u):0;
+    return `<div class="urow"><span class="avatar">${esc((u.name||'?')[0].toUpperCase())}</span><div style="min-width:0"><b>${esc(u.name)}</b> <span class="pill ${u.status==='approved'?(l>0?'approved':'rejected'):u.status==='pending'?'pending':'rejected'}">${u.status==='pending'?(u.renew?'Uzaytirish so\'radi':'Kutmoqda'):u.status==='approved'?(l>0?`${l} kun qoldi`:'Muddati tugagan'):"O'chirilgan"}</span>
+      <div class="meta">${u.status==='pending'?`so'rov: ${fmtAgo(u.req)}`:u.status==='approved'?`ruxsat ${new Date(u.exp).toLocaleDateString('uz')} gacha`:'Ruxsat yangilanmaydi'}</div>
+      ${open&&u.link?`<div style="margin-top:8px;display:grid;gap:6px"><div class="code" style="max-height:60px">${esc(u.link)}</div><div class="cta"><a class="btn sm primary" href="https://t.me/share/url?url=${encodeURIComponent(u.link)}&text=${encodeURIComponent(`${u.name}, So'z Sandig'i uchun ruxsat-linkingiz:`)}" target="_blank" rel="noopener">${I.chat} Telegram</a>${navigator.share?`<button class="btn sm" data-share="${esc(u.link)}" data-text="${esc(u.name)}, ruxsat-linkingiz">Ulashish</button>`:''}<button class="btn sm" data-copy="${esc(u.link)}">${I.copy} Nusxalash</button></div></div>`:''}</div>
+      <div class="acts">${del?`<button class="btn sm bad" data-act="ldel" data-id="${u.id}">Ha, o'chirish</button><button class="btn sm" data-act="adelno">Bekor</button>`
+        :u.status==='pending'?`<button class="btn sm primary" data-act="lok" data-id="${u.id}">${I.check} Ruxsat berish</button><button class="btn sm" data-act="lno" data-id="${u.id}">Rad etish</button>`
+        :u.status==='approved'?`<button class="btn sm" data-act="lext" data-id="${u.id}">+30 kun</button><button class="btn sm" data-act="lshow" data-id="${u.id}">${I.link} Link</button><button class="btn sm bad" data-act="adelask" data-id="${u.id}">O'chirish</button>`
+        :`<button class="btn sm" data-act="lok" data-id="${u.id}">Qayta ruxsat</button><button class="btn sm" data-act="lforget" data-id="${u.id}">Ro'yxatdan olish</button>`}</div></div>` };
+  $app.innerHTML=`<div><header class="top"><div style="display:flex;gap:12px;align-items:center"><span class="brandmark">${logoSVG(false)}</span><div><div class="label">Boshqaruv</div><h1 style="font-size:26px">Admin panel</h1></div></div><button class="iconbtn" data-act="llock" aria-label="Qulflash">${I.shield}</button></header>
+   <div class="adm-sum"><div class="kpi"><span>So'rovlar</span><b>${pend.length}</b></div><div class="kpi"><span>Faol</span><b>${act.filter(u=>left(u)>0).length}</b></div><div class="kpi"><span>O'chirilgan</span><b>${rem.length}</b></div></div>
+   <div class="panel" style="margin-top:12px"><h3>Qanday ishlaydi</h3><ol class="muted" style="margin:0;padding-left:18px;font-size:14px;display:grid;gap:4px">
+    <li>Odamga foydalanuvchilar linkini yuborasiz.</li><li>U ismini yozib "Ruxsat so'rash"ni bosadi — so'rov-link sizga Telegramda keladi.</li><li>Siz o'sha linkni bosasiz, so'rov shu yerda chiqadi. "Ruxsat berish"ni bosib, ruxsat-linkni unga qaytarasiz.</li><li>U ruxsat-linkni bosadi — ilova 30 kunga ochiladi. "+30 kun" bilan uzaytirasiz.</li></ol>
+    <div class="code" style="user-select:all">${esc(baseURL())}</div><div class="cta"><button class="btn" data-copy="${esc(baseURL())}">${I.copy} Foydalanuvchilar linkini nusxalash</button></div></div>
+   <div class="panel" style="margin-top:12px"><h3>So'rovni qo'lda qo'shish</h3><p class="muted" style="margin:0;font-size:14px">Agar so'rov-link sizga matn ko'rinishida kelgan bo'lsa, shu yerga qo'ying.</p><textarea class="field" id="reqin" rows="2" placeholder="https://…admin.html#r=…"></textarea><button class="btn" data-act="laddreq">So'rovni qo'shish</button></div>
+   ${pend.length?`<div class="sec-h"><div><div class="label">Yangi so'rovlar</div><h2>Ruxsat kutayotganlar</h2></div></div><div class="list">${pend.map(row).join('')}</div>`:''}
+   <div class="sec-h"><div><div class="label">Foydalanuvchilar</div><h2>Ruxsat berilganlar</h2></div></div>
+   ${act.length+rem.length?`<div class="list">${act.concat(rem).map(row).join('')}</div>`:`<div class="help">Hali hech kimga ruxsat berilmagan.</div>`}
+   <div class="help" style="margin-top:14px">O'chirilgan foydalanuvchining ruxsati yangilanmaydi va amaldagi muddati tugashi bilan ilova unga yopiladi. Har bir odamning natijalari uning o'z qurilmasida saqlanadi.</div></div>`;
+}
+
+/* ----- user side ----- */
+async function myAccess(){ const t=lsGet(LK.tok); if(!t) return null; const p=await verifyTok(t); if(!p||p.id!==deviceId()) return null; return p }
+function splashGate(msg){
+  const nm=P.name||'';
+  if(!nm){ splashShell(`<div class="sp-greet"><div class="en">Hello! Welcome.</div><div class="uz">2200 ta eng kerakli inglizcha so'zni yodlash uchun ilova. Kirish admin ruxsati bilan.</div></div>
+     <div class="sp-act"><input class="sp-input" id="spName" maxlength="40" placeholder="Ismingizni kiriting" autocomplete="given-name"><button class="sp-btn" id="spGo" disabled>${I.play} Davom etish</button>${msg?`<div class="sp-err">${esc(msg)}</div>`:''}</div>`);
+    const inp=$('spName'),go=$('spGo'); inp.addEventListener('input',()=>{go.disabled=!inp.value.trim()}); inp.addEventListener('keydown',e=>{if(e.key==='Enter'&&inp.value.trim()) go.click()});
+    go.onclick=()=>{ P.name=inp.value.trim().replace(/\s+/g,' '); save(); splashGate(msg) }; return; }
+  const req=baseURL()+'admin.html#r='+tjson({v:1,id:deviceId(),n:nm,t:Date.now()});
+  splashShell(`<div class="sp-greet"><div class="en">Hi, ${esc(nm)}!</div><div class="uz">Ilovadan foydalanish uchun admin ruxsati kerak. So'rovingizni adminga yuboring — u sizga ruxsat-link qaytaradi.</div></div>
+   <div class="sp-act">${msg?`<div class="sp-err" style="text-align:center">${esc(msg)}</div>`:''}${shareBox(req,`Salom! Men ${nm}. So'z Sandig'i ilovasiga ruxsat so'rayman:`,"So'rov-linkini nusxalash")}
+    <div class="sp-card" style="padding:12px"><p style="font-size:14px">Ruxsat-link kelganda uni shunchaki bosing. Yoki shu yerga qo'ying:</p><input class="sp-input" id="spTok" placeholder="Ruxsat-link" style="font-size:15px"><button class="sp-btn" id="spUse">Kirish</button></div>
+    <button class="sp-skip" id="spRen">Ismni o'zgartirish</button></div>`);
+  $('spUse').onclick=async()=>{ const v=$('spTok').value.trim(); const m=v.match(/#a=([^&\s]+)/); await useToken(m?m[1]:v) };
+  $('spRen').onclick=()=>{ P.name=''; save(); splashGate() };
+}
+async function useToken(t){ const p=await verifyTok(t); if(!p) return splashGate("Ruxsat-link noto'g'ri yoki buzilgan.");
+  if(p.id!==deviceId()) return splashGate("Bu ruxsat-link boshqa qurilma uchun berilgan. O'zingiz uchun so'rov yuboring.");
+  if(p.exp<Date.now()) return splashGate("Ruxsat muddati tugagan. Adminga yangilash so'rovini yuboring.");
+  lsSet(LK.tok,t); if(!P.name) { P.name=p.n; save(); } toast('Ruxsat berildi. Xush kelibsiz!'); localEnter(p) }
+function localEnter(p){ me=null; accessInfo=p; rerender(true); splashWelcomeLocal(!P.hist.length&&!known()) }
+let accessInfo=null;
+async function localGate(){
+  const k=hashParam('k'), r=hashParam('r'), a=hashParam('a'); if(k||r||a) stripHash();
+  if(ADMIN_PAGE){
+    if(r) sp.req=r;
+    if(k){ if(await checkD(k)) return splashAdminFirst(k); return splashShell(`<div class="sp-card"><h3>Admin linki noto'g'ri</h3><p>Bu link to'liq nusxalanmagan bo'lishi mumkin.</p></div>`) }
+    if(lsGet(LK.adm)) return splashAdminUnlock();
+    return splashShell(`<div class="sp-card"><h3>Bu admin sahifasi</h3><p>Uni faqat adminning shaxsiy linki orqali ochish mumkin.</p><a class="sp-skip" href="${esc(baseURL())}">Ilovaga o'tish</a></div>`);
+  }
+  if(a) return useToken(a);
+  if(lsGet(LK.adm)){ me={is_admin:false}; me=null; rerender(true); return splashLocal() }   /* admin's own device */
+  const p=await myAccess();
+  if(p&&p.exp>Date.now()) return localEnter(p);
+  if(p) return splashGate("Ruxsat muddati tugagan. Adminga yangilash so'rovini yuboring.");
+  splashGate();
+}
+
 function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=rej; document.head.appendChild(s); }) }
 async function boot(){
-  if(!WANT_CLOUD&&ADMIN_PAGE){ splashShell(''); setTimeout(()=>splashShell(`<div class="sp-card" style="text-align:left"><h3 style="text-align:center">Admin paneli hali ulanmagan</h3>
-     <p>Admin paroli, so'rovlar va foydalanuvchilarni boshqarish server orqali ishlaydi. Server ulanishi bilan shu sahifada birinchi bo'lib admin parolini o'rnatasiz.</p>
-     <p><b style="color:#fff">Qolgan qadam:</b> Supabase loyihasining <b style="color:#fff">Project URL</b> va <b style="color:#fff">anon (publishable)</b> kalitini dasturchiga yuboring.</p></div>`),900); return; }
-  if(!WANT_CLOUD){ rerender(true); splashShell(''); setTimeout(splashLocal,900); return; }
+  if(!WANT_CLOUD){ splashShell(''); setTimeout(()=>localGate().catch(()=>splashShell(`<div class="sp-card"><h3>Brauzeringiz eskirgan</h3><p>Chrome yoki Safari'ning yangi versiyasida oching.</p></div>`)),900); return; }
   splashShell(''); 
   try{ if(!window.supabase) await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js'); }
   catch(e){ return splashShell(`<div class="sp-card"><h3>Internet kerak</h3><p>Ilova serverga ulanishi uchun internetga ulaning va sahifani yangilang.</p></div>`) }
@@ -835,6 +966,7 @@ function renderHome(){
   const nm=P.name?esc(P.name):'';
   let h=`<div><header class="top"><div class="hello"><button class="avatar" data-act="nav" data-v="profile" aria-label="Profil">${nm?nm[0].toUpperCase():'Aa'}</button><div style="min-width:0"><h1>${nm?`${greetUZ()}, ${nm}`:"So'z Sandig'i"}</h1><div class="sub">${new Date().getDate()}-${UZM[new Date().getMonth()]} · ${st?`${st} kun ketma-ket`:"bugun yangi kun"}</div></div></div>
    <button class="iconbtn" data-act="nav" data-v="stats" aria-label="Statistika">${I.chart}</button></header>
+  ${accessInfo&&accessInfo.exp-Date.now()<5*DAY?`<div class="insight" style="margin-bottom:12px"><span class="mi">${I.clock}</span><div>Ruxsatingiz <b>${Math.max(0,Math.ceil((accessInfo.exp-Date.now())/DAY))} kundan</b> keyin tugaydi. <a href="https://t.me/share/url?url=${encodeURIComponent(baseURL()+'admin.html#r='+tjson({v:1,id:deviceId(),n:P.name||'',t:Date.now()}))}&text=${encodeURIComponent('Ruxsatimni uzaytirib bering:')}" target="_blank" rel="noopener" style="color:var(--accent);font-weight:700">Adminga uzaytirish so'rovini yuborish</a></div></div>`:''}
   <section class="card-s hero"><div class="ikat"></div>
    <div class="hero-row"><div class="ring">${ringSVG(k/N)}<div class="num"><div><b>${k}</b><small>/ ${N} so'z</small></div></div></div>
     <div style="display:grid;gap:14px;min-width:0;width:100%">
@@ -1390,13 +1522,14 @@ async function loadAdmin(){ if(!sb) return; ADM.loading=true;
     pendingN=ADM.users.filter(u=>u.status==='pending').length; }
   catch(e){ ADM.err="Ma'lumotlarni yuklab bo'lmadi."; }
   ADM.loading=false; if(view.name==='admin') renderAdmin(); renderNav(); }
-function initAdminLive(){ loadAdmin();
+function initAdminLive(){ if(!sb) return; loadAdmin();
   try{ sb.channel('ss-profiles').on('postgres_changes',{event:'*',schema:'public',table:'profiles'},pl=>{
       if(pl.eventType==='INSERT'&&pl.new&&pl.new.status==='pending'){ toast(`Yangi so'rov: ${pl.new.name||pl.new.login}`,"Ko'rish",()=>go({name:'admin'})); }
       loadAdmin(); }).subscribe(); }catch(e){} }
 function publicLink(){ return location.href.replace(/admin\.html.*$/,'').replace(/[#?].*$/,'') }
 function renderAdmin(){
   if(!(me&&me.is_admin)){ $app.innerHTML=''; return }
+  if(!sb) return renderAdminLocal();
   if(!ADM.users&&!ADM.loading) loadAdmin();
   const us=(ADM.users||[]).filter(u=>!u.is_admin), pend=us.filter(u=>u.status==='pending'), act=us.filter(u=>u.status==='approved'), blk=us.filter(u=>u.status==='rejected');
   const row=u=>{ const pr=ADM.prog[u.id]||{}; const del=ADM.confirmDel===u.id;
@@ -1499,6 +1632,13 @@ function act(a,d){
   /* stats */
   case 'smetric': view.metric=d.v; renderStats(); break;
   case 'srange': view.range=+d.v; renderStats(); break;
+  /* serverless admin */
+  case 'lok': case 'lext': { (async()=>{ const u=await approveUser(d.id,30); if(!u) return toast('Admin kaliti ochilmagan'); ADM.open=u.id; renderAdminLocal(); toast(a==='lok'?`${u.name} uchun ruxsat-link tayyor — unga yuboring`:`Muddat uzaytirildi — yangi linkni yuboring`); })(); break; }
+  case 'lshow': ADM.open=ADM.open===d.id?null:d.id; renderAdminLocal(); break;
+  case 'lno': case 'ldel': { const us=admUsers(); const u=us.find(x=>x.id===d.id); if(u){ u.status='removed'; delete u.link; } ADM.confirmDel=null; admSave(us); renderAdminLocal(); toast(a==='ldel'?"O'chirildi: ruxsati endi yangilanmaydi":'Rad etildi'); break; }
+  case 'lforget': { admSave(admUsers().filter(x=>x.id!==d.id)); renderAdminLocal(); break; }
+  case 'laddreq': { const v=($('reqin').value||'').trim(); const m=v.match(/#r=([^&\s]+)/); if(admAddRequest(m?m[1]:v)){ renderAdminLocal() } else toast("So'rov-link noto'g'ri"); break; }
+  case 'llock': adminKey=null; location.href=location.pathname; break;
   /* admin */
   case 'arefresh': loadAdmin(); toast('Yangilanmoqda…'); break;
   case 'aset': { (async()=>{ const {error}=await sb.rpc('admin_set_status',{uid:d.id,new_status:d.v}); if(error) return toast("Bajarib bo'lmadi: "+error.message); toast(d.v==='approved'?'Ruxsat berildi':d.v==='rejected'?'Bloklandi':'Saqlandi'); loadAdmin(); })(); break; }
