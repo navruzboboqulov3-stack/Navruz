@@ -712,6 +712,24 @@ function authErr(e){ const m=(e&&e.message||'').toLowerCase();
   if(m.includes('fetch')||m.includes('network')) return "Internetga ulanib bo'lmadi.";
   return "Xatolik yuz berdi. Qayta urinib ko'ring."; }
 function splashLoading(t){ splashShell(`<div class="sp-greet"><div class="sp-spin"></div><div class="uz">${esc(t||'Yuklanmoqda…')}</div></div>`) }
+function splashAdminSetup(err){
+  splashShell(`<div class="sp-greet"><div class="en">Admin parolini o'rnating</div><div class="uz">Bu birinchi kirish. Faqat o'zingiz biladigan parol o'ylab toping — keyin admin sahifasiga shu parol bilan kirasiz.</div></div>
+   <form class="sp-act" id="spForm" autocomplete="on"><input type="hidden" name="username" value="admin" autocomplete="username">
+   <input class="sp-input" id="spName" maxlength="40" placeholder="Ismingiz" autocomplete="given-name" required>
+   <input class="sp-input" id="spPass" type="password" minlength="8" placeholder="Yangi parol (kamida 8 belgi)" autocomplete="new-password" required>
+   <input class="sp-input" id="spPass2" type="password" minlength="8" placeholder="Parolni takrorlang" autocomplete="new-password" required>
+   <div class="sp-err" id="spErr">${esc(err||'')}</div><button class="sp-btn" id="spGo">${I.play} Parolni saqlash</button></form>`);
+  $('spForm').addEventListener('submit',async e=>{ e.preventDefault(); const nm=$('spName').value.trim(), pw=$('spPass').value, pw2=$('spPass2').value;
+    if(!nm) return $('spErr').textContent='Ismingizni kiriting.';
+    if(pw.length<8) return $('spErr').textContent="Parol kamida 8 ta belgi bo'lsin.";
+    if(pw!==pw2) return $('spErr').textContent='Parollar bir xil emas.';
+    $('spGo').disabled=true;
+    const {data,error}=await sb.auth.signUp({email:ADMIN_EMAIL,password:pw,options:{data:{name:nm}}});
+    if(error){ $('spGo').disabled=false; $('spErr').textContent=authErr(error); return }
+    if(!data.session){ $('spErr').textContent="Supabase'da \"Confirm email\" o'chirilmagan."; $('spGo').disabled=false; return }
+    afterAuth(); });
+}
+async function adminEntry(err){ try{ const {data,error}=await sb.rpc('admin_exists'); if(!error&&data===false) return splashAdminSetup(err); }catch(e){} splashAdminLogin(err) }
 function splashAdminLogin(err){
   splashShell(`<div class="sp-greet"><div class="en">Admin</div><div class="uz">Boshqaruv paneliga kirish uchun admin parolini kiriting.</div></div>
    <form class="sp-act" id="spForm" autocomplete="on"><input type="hidden" name="username" value="admin" autocomplete="username"><input class="sp-input" id="spPass" type="password" placeholder="Admin paroli" autocomplete="current-password" required>
@@ -753,7 +771,7 @@ function splashStatus(st){
 async function loadProfile(){ const {data,error}=await sb.from('profiles').select('*').eq('id',uid).maybeSingle(); if(error) throw error; return data }
 async function afterAuth(quiet){
   try{
-    const {data:{session}}=await sb.auth.getSession(); if(!session){ return ADMIN_PAGE?splashAdminLogin():splashUserAuth('reg') }
+    const {data:{session}}=await sb.auth.getSession(); if(!session){ return ADMIN_PAGE?adminEntry():splashUserAuth('reg') }
     uid=session.user.id; if(!quiet) splashLoading();
     me=await loadProfile(); if(!me){ await sb.auth.signOut(); return ADMIN_PAGE?splashAdminLogin('Profil topilmadi.'):splashUserAuth('reg','Profil topilmadi. Qayta ro\'yxatdan o\'ting.') }
     if(ADMIN_PAGE&&!me.is_admin){ await sb.auth.signOut(); return splashAdminLogin('Bu sahifa faqat admin uchun.') }
